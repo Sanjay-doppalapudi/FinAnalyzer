@@ -2,21 +2,31 @@ import streamlit as st
 import PyPDF2
 import io
 import openai
+from docx import Document
 
-def extract_text_from_pdf(uploaded_file):
+def extract_text_from_file(uploaded_file):
     """
-    Extract text from a PDF file using PyPDF2.
+    Extract text from uploaded file based on type.
     """
+    file_name = uploaded_file.name.lower()
     text = ""
+    uploaded_file.seek(0)  # Reset file pointer
+    
     try:
-        # Read the uploaded file
-        pdf_reader = PyPDF2.PdfReader(io.BytesIO(uploaded_file.read()))
-        
-        # Extract text from each page
-        for page in pdf_reader.pages:
-            text += page.extract_text() + "\n"
+        if file_name.endswith('.pdf'):
+            pdf_reader = PyPDF2.PdfReader(io.BytesIO(uploaded_file.read()))
+            for page in pdf_reader.pages:
+                text += page.extract_text() + "\n"
+        elif file_name.endswith('.docx'):
+            doc = Document(io.BytesIO(uploaded_file.read()))
+            text = '\n'.join([paragraph.text for paragraph in doc.paragraphs])
+        elif file_name.endswith(('.md', '.txt')):
+            text = uploaded_file.read().decode("utf-8")
+        else:
+            st.warning(f"Unsupported file type: {file_name}")
+            return ""
     except Exception as e:
-        st.error(f"Error extracting text: {e}")
+        st.error(f"Error extracting text from {file_name}: {e}")
     
     return text
 
@@ -42,6 +52,10 @@ def generate_suggestions(extracted_text):
             max_tokens=300,
         )
         content = response.choices[0].message.content
+        if content is None:
+            st.error("API response content is None in generate_suggestions")
+            return ["What are the key financial metrics?", "Summarize revenue trends.", "Analyze profitability."]
+        st.write(f"Debug: Content length: {len(content)}")  # Log for validation
         # Parse numbered list
         lines = [line.strip() for line in content.split('\n') if line.strip().startswith(('.', '1.', '2.', '3.'))]
         suggestions = [line.split('.', 1)[1].strip() if '.' in line else line.strip() for line in lines[:3]]
@@ -52,7 +66,6 @@ def generate_suggestions(extracted_text):
 
 def set_query(question):
     st.session_state.query = question
-    st.rerun()
 
 
 def analyze_with_ai(extracted_text, query):
@@ -64,7 +77,7 @@ def analyze_with_ai(extracted_text, query):
         api_key=st.secrets["openrouter_api_key"],
     )
     
-    system_prompt = """You are a Finance Analyzer AI. Analyze the provided financial report text and answer the user's query.
+    system_prompt = """You are a Finance Analyzer AI. Analyze the provided financial report text (multiple documents separated by <endofthefile>) and answer the user's query.
     
     Respond in raw, well-formatted Markdown without escaping syntax. Use **bold** for key figures (e.g., **Revenue: $1M**), *italic* for terms, | tables | for financial data (e.g., | Metric | Value |), and describe charts/graphs in text or simple markdown representations. Include newlines for readability. Do not use backticks or escapes for markdown; output pure markdown for proper rendering."""
     
@@ -77,7 +90,12 @@ def analyze_with_ai(extracted_text, query):
             ],
             max_tokens=2000,
         )
-        return response.choices[0].message.content
+        content = response.choices[0].message.content
+        if content is None:
+            st.error("API response content is None in analyze_with_ai")
+            return "Error: No response from AI."
+        st.write(f"Debug: Analysis content length: {len(content)}")  # Log for validation
+        return content
     except Exception as e:
         return f"Error in AI analysis: {e}"
 
@@ -85,23 +103,35 @@ def analyze_with_ai(extracted_text, query):
 st.title("Finance Analyzer AI")
 
 # File uploader
-uploaded_file = st.file_uploader("Upload a PDF financial report", type="pdf")
+uploaded_files = st.file_uploader("Upload financial reports (PDF, DOCX, MD, TXT) - up to 3 files", type=["pdf", "docx", "md", "txt"], accept_multiple_files=True)
 
-if uploaded_file is not None:
-    if "extracted_text" not in st.session_state:
-        with st.spinner("Extracting text from PDF..."):
-            st.session_state.extracted_text = extract_text_from_pdf(uploaded_file)
+if uploaded_files:
+    if len(uploaded_files) > 3:
+        st.warning("Only the first 3 files will be processed.")
+        uploaded_files = uploaded_files[:3]
     
-    extracted_text = st.session_state.extracted_text
+    if "combined_text" not in st.session_state:
+        with st.spinner("Extracting text from files..."):
+            combined_text = ""
+            for i, file in enumerate(uploaded_files):
+                text = extract_text_from_file(file)
+                combined_text += text
+                if i < len(uploaded_files) - 1:
+                    combined_text += "<endofthefile>\n"
+            st.session_state.combined_text = combined_text
+    
+    combined_text = st.session_state.combined_text
     
     with st.expander("View Extracted Text", expanded=False):
-        st.text_area("Extracted Content", extracted_text, height=300, disabled=True)
+        st.text_area("Extracted Content", combined_text, height=300, disabled=True)
+    
+    extracted_text = combined_text  # For compatibility
 
     st.subheader("AI Analysis")
     
-    if extracted_text and 'suggestions' not in st.session_state:
+    if combined_text and 'suggestions' not in st.session_state:
         with st.spinner("Generating suggestions..."):
-            st.session_state.suggestions = generate_suggestions(extracted_text)
+            st.session_state.suggestions = generate_suggestions(combined_text)
     
     if 'suggestions' in st.session_state:
         st.write("Suggested queries:")
@@ -109,14 +139,37 @@ if uploaded_file is not None:
         for i, suggestion in enumerate(st.session_state.suggestions):
             cols[i].button(suggestion, on_click=set_query, args=(suggestion,), key=f"sug_{i}")
     
-    query = st.text_input("Enter your query", value=st.session_state.get('query', ''), key='query')
+    query = st.text_input("Enter your query", key='query')
     
     if st.button("Analyze"):
         if not query.strip():
             st.warning("Please enter a query to analyze.")
         else:
             with st.spinner("Analyzing with AI..."):
-                analysis = analyze_with_ai(extracted_text, query)
+                analysis = analyze_with_ai(combined_text, query)
+                if analysis is None:
+                    st.error("Analysis result is None")
+                    analysis = "Error: No analysis generated."
             
             st.markdown("### Analysis Result")
             st.markdown(analysis)
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.button("Copy to Clipboard"):
+                    st.html(
+                        f"""
+                        <script>
+                        navigator.clipboard.writeText(`{str(analysis).replace('`', '\\`')}`);
+                        alert('Copied to clipboard!');
+                        </script>
+                        """,
+                        height=0
+                    )
+            with col2:
+                st.download_button(
+                    label="Export as MD",
+                    data=str(analysis),
+                    file_name="financial_analysis.md",
+                    mime="text/markdown"
+                )
