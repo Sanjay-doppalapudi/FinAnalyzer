@@ -35,9 +35,15 @@ def generate_suggestions(extracted_text):
     """
     Generate 3 suggested questions using AI.
     """
+    try:
+        api_key = st.secrets["openrouter_api_key"]
+    except KeyError:
+        st.error("OpenRouter API key not found. Please set 'openrouter_api_key' in your Streamlit secrets.")
+        return ["What are the key financial metrics?", "Summarize revenue trends.", "Analyze profitability."]
+
     client = openai.OpenAI(
         base_url="https://openrouter.ai/api/v1",
-        api_key=st.secrets["openrouter_api_key"],
+        api_key=api_key,
     )
     
     system_prompt = "You are a Finance Analyzer AI. Generate exactly 3 relevant, random questions for analyzing the provided financial report text. Output as a numbered list: 1. Question one\n2. Question two\n3. Question three"
@@ -72,9 +78,14 @@ def analyze_with_ai(extracted_text, query):
     """
     Analyze the extracted text using OpenRouter API.
     """
+    try:
+        api_key = st.secrets["openrouter_api_key"]
+    except KeyError:
+        return "Error: OpenRouter API key not found. Please set 'openrouter_api_key' in your Streamlit secrets."
+
     client = openai.OpenAI(
         base_url="https://openrouter.ai/api/v1",
-        api_key=st.secrets["openrouter_api_key"],
+        api_key=api_key,
     )
     
     system_prompt = """You are a Finance Analyzer AI. Analyze the provided financial report text (multiple documents separated by <endofthefile>) and answer the user's query.
