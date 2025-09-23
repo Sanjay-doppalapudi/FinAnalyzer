@@ -56,7 +56,7 @@ def generate_suggestions(extracted_text: str) -> List[str]:
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": f"Financial report text:\n{extracted_text[:2000]}"},  # Truncate for token limit
             ],
-            max_tokens=300,
+            max_tokens=1000,
         )
         content = response.choices[0].message.content
         if content is None:
@@ -100,7 +100,7 @@ def analyze_with_ai(extracted_text: str, query: str) -> str:
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": f"Financial report text:\n{extracted_text}\n\nUser query: {query}"},
             ],
-            max_tokens=2000,
+            max_tokens=8000,
         )
         content = response.choices[0].message.content
         if content is None:
