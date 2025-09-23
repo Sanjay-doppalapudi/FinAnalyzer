@@ -120,8 +120,10 @@ if uploaded_files:
     if len(uploaded_files) > 3:
         st.warning("Only the first 3 files will be processed.")
         uploaded_files = uploaded_files[:3]
-    
-    if "combined_text" not in st.session_state:
+
+    # Check if uploaded files have changed
+    current_file_names = [f.name for f in uploaded_files]
+    if current_file_names != st.session_state.get('uploaded_file_names', []):
         with st.spinner("Extracting text from files..."):
             combined_text = ""
             for i, file in enumerate(uploaded_files):
@@ -130,28 +132,30 @@ if uploaded_files:
                 if i < len(uploaded_files) - 1:
                     combined_text += "<endofthefile>\n"
             st.session_state.combined_text = combined_text
-    
-    combined_text = st.session_state.combined_text
-    
-    with st.expander("View Extracted Text", expanded=False):
-        st.text_area("Extracted Content", combined_text, height=300, disabled=True)
-    
+            st.session_state.uploaded_file_names = current_file_names
+
+    combined_text = st.session_state.get('combined_text', '')
+
+    if combined_text:
+        st.subheader("Extracted Text")
+        st.text_area("Combined Extracted Content from all files", combined_text, height=300, disabled=True)
+
     extracted_text = combined_text  # For compatibility
 
     st.subheader("AI Analysis")
-    
+
     if combined_text and 'suggestions' not in st.session_state:
         with st.spinner("Generating suggestions..."):
             st.session_state.suggestions = generate_suggestions(combined_text)
-    
+
     if 'suggestions' in st.session_state:
         st.write("Suggested queries:")
         cols = st.columns(3)
         for i, suggestion in enumerate(st.session_state.suggestions):
             cols[i].button(suggestion, on_click=set_query, args=(suggestion,), key=f"sug_{i}")
-    
+
     query = st.text_input("Enter your query", key='query')
-    
+
     if st.button("Analyze"):
         if not query.strip():
             st.warning("Please enter a query to analyze.")
@@ -161,10 +165,10 @@ if uploaded_files:
                 if analysis is None:
                     st.error("Analysis result is None")
                     analysis = "Error: No analysis generated."
-            
+
             st.markdown("### Analysis Result")
             st.markdown(analysis)
-            
+
             col1, col2 = st.columns(2)
             with col1:
                 if st.button("Copy to Clipboard"):
@@ -184,3 +188,10 @@ if uploaded_files:
                     file_name="financial_analysis.md",
                     mime="text/markdown"
                 )
+else:
+    # Clear session state if no files uploaded
+    if 'combined_text' in st.session_state:
+        del st.session_state.combined_text
+    if 'uploaded_file_names' in st.session_state:
+        del st.session_state.uploaded_file_names
+    combined_text = ""
