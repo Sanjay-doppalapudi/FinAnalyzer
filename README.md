@@ -1,9 +1,12 @@
 # 📊 Finance Analyzer AI
 
+[![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://finanalyzer.streamlit.app/)
+
 A modern web application built with Streamlit that allows users to upload financial report files (PDF, DOCX, MD, TXT – up to 3 files), extract text, and generate AI-powered summaries, analyses, or answers to custom queries. Powered by OpenRouter API for intelligent processing, it delivers formatted outputs with bold, italic, tables, and descriptive charts/graphs.
 
 [![Streamlit](https://img.shields.io/badge/Streamlit-FF4B4B?style=for-the-badge&logo=streamlit&logoColor=white)](https://streamlit.io/)
 [![Python](https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
+[![OpenRouter](https://img.shields.io/badge/OpenRouter-000000?style=for-the-badge&logo=data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyIDJDMTMuMSAyIDE0IDIuOSAxNCA0VjIwQzE0IDIxLjEgMTMuMSAyMiAxMiAyMkMxMC45IDIyIDEwIDIxLjEgMTAgMjBWMTRDMTAgMi45IDEwLjkgMiAxMiAyWk0xMiA0QzEyLjU1IDQgMTMgNC40NSAxMyA1VjE5QzEzIDE5LjU1IDEyLjU1IDIwIDEyIDIwQzExLjQ1IDIwIDExIDE5LjU1IDExIDE5VjVDMTEgNC40NSAxMS40NSA0IDEyIDRaIiBmaWxsPSIjZmZmZmZmIi8+Cjwvc3ZnPgo=)](https://openrouter.ai/)
 
 ## ✨ Features
 

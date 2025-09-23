@@ -3,15 +3,16 @@ import PyPDF2
 import io
 import openai
 from docx import Document
+from typing import Any, List
 
-def extract_text_from_file(uploaded_file):
+def extract_text_from_file(uploaded_file: Any) -> str:
     """
     Extract text from uploaded file based on type.
     """
     file_name = uploaded_file.name.lower()
     text = ""
     uploaded_file.seek(0)  # Reset file pointer
-    
+
     try:
         if file_name.endswith('.pdf'):
             pdf_reader = PyPDF2.PdfReader(io.BytesIO(uploaded_file.read()))
@@ -25,13 +26,13 @@ def extract_text_from_file(uploaded_file):
         else:
             st.warning(f"Unsupported file type: {file_name}")
             return ""
-    except Exception as e:
-        st.error(f"Error extracting text from {file_name}: {e}")
-    
+    except Exception:
+        st.error(f"Error extracting text from {file_name}")
+
     return text
 
 
-def generate_suggestions(extracted_text):
+def generate_suggestions(extracted_text: str) -> List[str]:
     """
     Generate 3 suggested questions using AI.
     """
@@ -45,9 +46,9 @@ def generate_suggestions(extracted_text):
         base_url="https://openrouter.ai/api/v1",
         api_key=api_key,
     )
-    
+
     system_prompt = "You are a Finance Analyzer AI. Generate exactly 3 relevant, random questions for analyzing the provided financial report text. Output as a numbered list: 1. Question one\n2. Question two\n3. Question three"
-    
+
     try:
         response = client.chat.completions.create(
             model="x-ai/grok-4-fast:free",
@@ -66,15 +67,15 @@ def generate_suggestions(extracted_text):
         lines = [line.strip() for line in content.split('\n') if line.strip().startswith(('.', '1.', '2.', '3.'))]
         suggestions = [line.split('.', 1)[1].strip() if '.' in line else line.strip() for line in lines[:3]]
         return suggestions if len(suggestions) == 3 else ["What are the key financial metrics?", "Summarize revenue trends.", "Analyze profitability."]
-    except Exception as e:
+    except Exception:
         return ["What are the key financial metrics?", "Summarize revenue trends.", "Analyze profitability."]
 
 
-def set_query(question):
+def set_query(question: str) -> None:
     st.session_state.query = question
 
 
-def analyze_with_ai(extracted_text, query):
+def analyze_with_ai(extracted_text: str, query: str) -> str:
     """
     Analyze the extracted text using OpenRouter API.
     """
@@ -87,11 +88,11 @@ def analyze_with_ai(extracted_text, query):
         base_url="https://openrouter.ai/api/v1",
         api_key=api_key,
     )
-    
+
     system_prompt = """You are a Finance Analyzer AI. Analyze the provided financial report text (multiple documents separated by <endofthefile>) and answer the user's query.
-    
+
     Respond in raw, well-formatted Markdown without escaping syntax. Use **bold** for key figures (e.g., **Revenue: $1M**), *italic* for terms, | tables | for financial data (e.g., | Metric | Value |), and describe charts/graphs in text or simple markdown representations. Include newlines for readability. Do not use backticks or escapes for markdown; output pure markdown for proper rendering."""
-    
+
     try:
         response = client.chat.completions.create(
             model="x-ai/grok-4-fast:free",
@@ -107,8 +108,8 @@ def analyze_with_ai(extracted_text, query):
             return "Error: No response from AI."
         st.write(f"Debug: Analysis content length: {len(content)}")  # Log for validation
         return content
-    except Exception as e:
-        return f"Error in AI analysis: {e}"
+    except Exception:
+        return "Error in AI analysis."
 
 # Streamlit app
 st.title("Finance Analyzer AI")
@@ -162,32 +163,29 @@ if uploaded_files:
         else:
             with st.spinner("Analyzing with AI..."):
                 analysis = analyze_with_ai(combined_text, query)
-                if analysis is None:
-                    st.error("Analysis result is None")
-                    analysis = "Error: No analysis generated."
+                st.session_state.analysis = analysis
+    if 'analysis' in st.session_state:
+        st.markdown("### Analysis Result")
+        st.markdown(st.session_state.analysis)
 
-            st.markdown("### Analysis Result")
-            st.markdown(analysis)
-
-            col1, col2 = st.columns(2)
-            with col1:
-                if st.button("Copy to Clipboard"):
-                    st.html(
-                        f"""
-                        <script>
-                        navigator.clipboard.writeText(`{str(analysis).replace('`', '\\`')}`);
-                        alert('Copied to clipboard!');
-                        </script>
-                        """,
-                        height=0
-                    )
-            with col2:
-                st.download_button(
-                    label="Export as MD",
-                    data=str(analysis),
-                    file_name="financial_analysis.md",
-                    mime="text/markdown"
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("Copy to Clipboard"):
+                st.html(
+                    f"""
+                    <script>
+                    navigator.clipboard.writeText(`{str(st.session_state.analysis).replace('`', '\\`')}`);
+                    alert('Copied to clipboard!');
+                    </script>
+                    """
                 )
+        with col2:
+            st.download_button(
+                label="Export as MD",
+                data=str(st.session_state.analysis),
+                file_name="financial_analysis.md",
+                mime="text/markdown"
+            )
 else:
     # Clear session state if no files uploaded
     if 'combined_text' in st.session_state:
